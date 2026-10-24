@@ -1,0 +1,55 @@
+# Langchain
+langchain 
+langchain-cli
+langchain-community
+langchain-groq
+langchain-tavily
+
+# Langgraph
+langgraph
+
+
+# Memory
+mem0ai
+
+# Environment
+python-dotenv
+
+
+# Flask Frontend/Backend
+flask
+flask-cors
+
+
+# Parsers
+markdown2 
+mistune
+html2text
+pypdf
+
+
+# Tools
+serpapi
+wikipedia
+arxiv
+googlesearch-python
+google-search-results
+beautifulsoup4
+
+
+# NLP
+langchain-ollama
+sentence_transformers
+
+
+# RAG
+faiss-cpu
+
+
+# Conversational Agents
+pyttsx3
+pyaudio
+vosk 
+sounddevice
+
+
