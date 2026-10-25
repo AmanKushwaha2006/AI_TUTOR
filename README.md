@@ -1,224 +1,281 @@
-# KIRA: AI Tutor - Smart Multimodal Learning Assistant
+# 🎓 KIRA: AI Tutor - Voice-Enabled Intelligent Multi-Agent Learning Assistant
 
-**Version-1**
+[![GitHub Repository](https://img.shields.io/badge/GitHub-AmanKushwaha2006%2FAI__TUTOR-blue?logo=github)](https://github.com/AmanKushwaha2006/AI_TUTOR)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-brightgreen?logo=python)](https://www.python.org/)
+[![Framework](https://img.shields.io/badge/Framework-Flask%20%7C%20LangGraph%20%7C%20LangChain-orange)](https://github.com/langchain-ai/langgraph)
+[![LLM Provider](https://img.shields.io/badge/LLM-Groq%20Cloud-purple)](https://groq.com/)
+[![Local Embeddings](https://img.shields.io/badge/Embeddings-Ollama%20(mxbai--embed--large)-black)](https://ollama.com/)
 
-## Description
+**KIRA (The Voice of Knowledge)** is an intelligent, multimodal AI tutor application built using **Flask**, **LangGraph**, **LangChain**, and high-speed **Groq LLMs**. 
 
-**KIRA** is an intelligent, multimodal educational assistant built using **Flask**, **Langchain** and advanced **AI models**, designed to provide precise and engaging learning support. Whether you're uploading PDFs for reference or seeking real-time answers through web scraping, AI Tutor adapts dynamically using **Retrieval-Augmented Generation (RAG)** and **Agentic capabilities** to ensure tailored responses.
+It features an autonomous **multi-agent pipeline** (Researcher, Drafter, Verifier, Enhancer), personalized long-term and short-term memory with **Mem0**, local document understanding via **RAG (FAISS + Ollama embeddings)**, offline Indian-English speech recognition via **Vosk**, and clean, human-readable list-wise formatting.
 
-## Tech Stack
+---
 
-| Layer                     | Technologies Used                                            |
-| ------------------------- | ------------------------------------------------------------ |
-| **Frontend**              | Flask, HTML, CSS, JavaScript                                 |
-| **AI Models**             | Gemini 1.5-flash, Gemini 2.0-flash, mxbai-embed-large:latest |
-| **Vector Datastore**      | FAISS (in-memory vector store)                               |
-| **Web Scraping**          | Langchain Tools, BeautifulSoup4, SERP                        |
-| **RAG + Agentic Support** | Langchain, GoogleGenerativeAI, webbrowser                    |
-| **NLP Processing**        | Ollama Embeddings, CharacterTextSplitter, NLTK               |
-| **Voice Interaction**     | SpeechRecognition, pyttsx3 (TTS)                             |
+## 🌟 Key Features
 
-## Features
+### 🧠 1. Multi-Agent LangGraph Architecture
+Unlike simple single-prompt bots, KIRA routes queries through a multi-agent state graph:
+- **Memory Retrieval Agent**: Pulls relevant short-term context and long-term user memories via Mem0.
+- **Researcher Agent**: Intelligently searches through uploaded PDF documents (RAG) or conducts multi-source live web research (Tavily, Wikipedia, ArXiv, Web Scraper).
+- **Drafter Agent**: Formulates a detailed first-pass educational response.
+- **Verifier Agent**: Validates the draft against research evidence to eliminate hallucinations.
+- **Enhancer Agent**: Refines tone into structured, clear, human-friendly bullet lists without cluttered or unreadable tables.
 
-### 🔁 Dual Response Capability
+### 📄 2. Dual Operation Modes (RAG vs. Live Web)
+- **Document Mode (RAG Enabled)**: Upload single or multiple PDFs. KIRA extracts, chunks, and embeds them into a local FAISS vector store using local Ollama embeddings (`mxbai-embed-large`), answering questions specifically grounded in your documents.
+- **Web Research Mode**: When no documents are uploaded, KIRA autonomously searches the live web using Tavily AI, Wikipedia, and ArXiv to find up-to-date facts and learning materials.
 
-- **With PDFs**: Extracts content from uploaded PDFs, embeds them into FAISS using cosine similarity, and generates responses by augmenting model outputs.
-- **Without PDFs**: Uses real-time web scraping and curates links from the web to answer queries dynamically.
+### 🎙️ 3. Voice-Enabled Learning (Offline & Low Latency)
+- **Speech-to-Text**: High-accuracy offline speech recognition powered by the **Vosk Indian-English model** (`vosk-model-en-in-0.5`), requiring no external speech API quotas.
+- **Text-to-Speech**: Seamless spoken responses using `pyttsx3` with real-time audio controls.
 
-### 🧠 Intelligent Context Handling
+### 📝 4. Human-Readable, List-Wise Formatting
+- Built-in `marked.js` markdown renderer converts responses into clean, scannable bullet points, bold key terms, and highlighted concepts.
+- Strict anti-bloat prompting ensures information is presented simply and directly without unreadable raw ASCII tables.
 
-- Differentiates between **retrieval mode** (document-based) and **non-retrieval mode** (web-based), ensuring the most context-aware and relevant responses.
+---
 
-### 🔗 RAG Capabilities
+## 🛠️ Tech Stack
 
-- Retrieves embedded vector chunks using cosine similarity and enhances Gemini-generated outputs with this specific context.
+| Layer | Technology |
+|---|---|
+| **Frontend** | HTML5, CSS3 (Modern Glassmorphism & Micro-animations), JavaScript, Marked.js |
+| **Backend Framework** | Flask (Python) |
+| **Orchestration** | LangGraph, LangChain Classic Agents |
+| **LLM Inference** | Groq Cloud (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`) |
+| **Embeddings** | Ollama local embedding daemon (`mxbai-embed-large:latest`, 1024-dim) |
+| **Vector Database** | FAISS (Facebook AI Similarity Search) |
+| **Memory System** | Mem0 (`mem0ai`) cloud memory platform |
+| **Web Research Tools** | Tavily AI Search, Wikipedia API, ArXiv API, BeautifulSoup4, SerpAPI |
+| **Speech-to-Text (STT)**| Vosk Offline Speech Recognition (`vosk-model-en-in-0.5`) |
+| **Text-to-Speech (TTS)**| `pyttsx3` |
 
-### 🤖 Agentic Capabilities
+---
 
-- Automates browsing using web scraping tools.
-- Opens recommended learning links in the user's browser for detailed study.
-
-### 🎙️ Voice-Enabled Learning
-
-- Listens to queries using **speech recognition**.
-- Responds using **text-to-speech**, improving accessibility and engagement.
-
-### 🧩 Multi-Model Chaining
-
-- Chains multiple models during RAG processing:
-  | Model | Purpose |
-  |-------------------|---------------------------------------------------------------------------------------------------------------|
-  | **shunya_llm** | Generation for non-retrieved queries using user input + web-scraped content. |
-  | **pratham_llm** | Retrieval-based topic generation using vector DB or document content. |
-  | **dviteey_llm** | Cross-verification of pratham_llm's output using retrieved data to reduce hallucinations and enhance clarity. |
-
-### 📚 Resource-Driven Recommendations
-
-- Offers curated links or document-based responses with no redundancy—focused only on what's essential for the user.
-
-## 📁 File Structure (with Descriptions)
+## 📁 Project Structure
 
 ```plaintext
-AI-TUTOR/
-├── aiFeatures/
-│   └── python/
-│       ├── ai_assistant.py              # Core logic to manage query routing and decision-making
-│       ├── ai_response.py               # Handles AI model responses and augmentation
-│       ├── rag_pipeline.py              # Implements RAG (retrieval-augmented generation) process
-│       ├── speech_to_text.py            # Converts voice input to text using speech recognition
-│       ├── text_to_speech.py            # Converts text responses to speech using pyttsx3
-│       ├── web_scraper_tool.py          # Automates scraping tools using BeautifulSoup and SERP
-│       └── web_scraping.py              # Generalized web scraping logic for live content retrieval
+AI_TUTOR/
+├── agents/                       # LangGraph agent definitions
+│   ├── agent_utils.py            # Groq LLM client configuration & rate-limit wrappers
+│   ├── drafter.py                # Educational draft synthesis agent
+│   ├── enhancer.py               # Tone, clarity, and list-wise formatting enhancer
+│   ├── researcher.py             # ReAct research agent (Tavily, ArXiv, Wikipedia, RAG)
+│   ├── summarizer.py             # Research extraction and summarization agent
+│   └── verifier.py               # Hallucination check & verification agent
 │
-├── data/
-│   └── scrapings/
-│       └── scraped_content.txt          # Stores temporarily scraped content from the web
+├── graph/                        # LangGraph workflow orchestration
+│   ├── helper_functions/         # Prompts, truncation, and logging utilities
+│   ├── graph_builder.py          # StateGraph assembly & conditional edge routing
+│   └── nodes.py                  # Agent graph node wrappers
 │
-├── testFrontend/
-│   └── FlaskApp/
-│       ├── static/
-│       │   ├── script.js                # JavaScript for dynamic frontend interaction
-│       │   └── style.css                # Custom styling for the frontend
-│       └── templates/
-│           └── index.html               # Main HTML template rendered by Flask
+├── RAG/                          # Retrieval-Augmented Generation pipeline
+│   └── rag_pipeline.py           # PyPDF text extraction, character splitting & FAISS indexing
 │
-├── app.py                               # Entry-point Flask server script integrating backend/frontend
-├── .env                                 # Environment file for storing API keys and secrets
-├── .gitignore                           # Git ignore rules
-├── README.md                            # Project documentation
-└── requirements.txt                     # Python dependencies
+├── state/                        # Context & Memory management
+│   ├── context.py                # TypedDict state schema for LangGraph
+│   └── memory.py                 # Mem0 short-term & long-term memory manager
+│
+├── tools/                        # Search & scraping utilities
+│   ├── arxiv.py                  # Scientific paper search
+│   ├── open_link.py              # Automated browser link opener
+│   ├── rag_tool.py               # Document retrieval tool wrapper
+│   ├── tavily.py                 # Real-time Tavily search tool
+│   ├── web_scraper.py            # BeautifulSoup4 HTML scraper
+│   └── wikipedia.py              # Wikipedia encyclopedic summary search
+│
+├── voice_assist/                 # Speech integration
+│   ├── speech_to_text.py         # Vosk microphone audio recognition
+│   └── text_to_speech.py         # pyttsx3 voice synthesis & thread manager
+│
+├── testFrontend/FlaskApp/        # Web Application UI
+│   ├── static/
+│   │   ├── script.js             # UI events, mic recording, Marked.js parsing
+│   │   └── style.css             # Responsive theme, typography, chat bubbles
+│   └── templates/
+│       └── index.html            # Main tutor chat interface
+│
+├── app.py                        # Root entry point to run Flask web app (Port 5500)
+├── main.py                       # CLI interface to run KIRA in terminal mode
+├── tutor.py                      # Core execution pipeline runner
+├── requirements.txt              # Complete Python package dependencies
+├── .env.example                  # Template for required environment variables
+└── README.md                     # Project documentation
 ```
 
-## Getting Started
+---
 
-### 1. Clone the Repository
+## 🚀 Complete Step-by-Step Setup Guide
 
+Follow these steps exactly to set up and run the project smoothly on your local machine:
+
+### 1. Prerequisites
+Ensure you have the following installed:
+- **Python 3.10+** (Tested on Python 3.11, 3.12, 3.13)
+- **Git**
+- **Microphone & Speaker** (for voice interaction)
+
+---
+
+### 2. Clone the Repository
+Clone the repository to your local directory:
 ```bash
-git clone https://github.com/gupta-v/AI-Tutor.git
-cd AI-Tutor
+git clone https://github.com/AmanKushwaha2006/AI_TUTOR.git
+cd AI_TUTOR
 ```
 
-### 2. Set Up Virtual Environment
+---
 
-Create the virtual environment:
-```bash
-python -m venv env
-```
+### 3. Create & Activate a Virtual Environment
 
-Activate it depending on your OS/shell:
+It is strongly recommended to use a dedicated virtual environment:
 
 - **Windows (PowerShell)**:
   ```powershell
+  python -m venv env
   .\env\Scripts\Activate.ps1
   ```
+  > *Note: If PowerShell shows an `Execution_Policies` restriction, run:*
+  > `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` *and then activate.*
+
 - **Windows (Command Prompt - cmd.exe)**:
   ```cmd
+  python -m venv env
   env\Scripts\activate.bat
   ```
+
 - **macOS / Linux / Git Bash**:
   ```bash
+  python3 -m venv env
   source env/bin/activate
   ```
 
-### 3. Install Dependencies
+---
 
+### 4. Install All Python Dependencies
+Run `pip` to install all required libraries:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure Environment Variables
+---
 
-Create a `.env` file and add your API keys:
+### 5. Install & Set Up Ollama (for Local Document Embeddings)
+
+KIRA uses **Ollama** locally to generate embeddings for document chunks during PDF uploads:
+
+1. Download and install Ollama from [https://ollama.com/download](https://ollama.com/download).
+2. Start the Ollama background service:
+   ```bash
+   ollama serve
+   ```
+3. In a new terminal window, pull the high-performance `mxbai-embed-large` embedding model:
+   ```bash
+   ollama pull mxbai-embed-large
+   ```
+4. Verify that Ollama is running at `http://127.0.0.1:11434`.
+
+---
+
+### 6. Download the Vosk Speech Model
+
+For fast offline Indian-English speech-to-text recognition:
+
+1. Download the lightweight model zip file:
+   👉 **[vosk-model-en-in-0.5.zip](https://alphacephei.com/vosk/models/vosk-model-en-in-0.5.zip)** (~36 MB)
+2. Extract the downloaded folder directly into the root directory of the project:
+   ```plaintext
+   AI_TUTOR/
+   ├── vosk-model-en-in-0.5/
+   │   ├── am/
+   │   ├── conf/
+   │   ├── graph/
+   │   └── ivector/
+   ├── app.py
+   └── ...
+   ```
+
+---
+
+### 7. Configure Environment Variables (`.env`)
+
+Create your `.env` file by copying `.env.example`:
+```bash
+cp .env.example .env
+```
+*(On Windows PowerShell, use: `Copy-Item .env.example .env`)*
+
+Open `.env` and fill in your API credentials:
 
 ```env
-GEMINI_API_KEY=your_gemini_key
-SERPAPI_KEY=your_serpapi_key
+# 1. Groq API Key (Required for LLM Agents)
+# Get your free key at: https://console.groq.com/keys
+GROQ_API_KEY=gsk_your_groq_api_key_here
+
+# 2. Tavily Search API Key (Required for live web search)
+# Get your free key at: https://app.tavily.com/
+TAVILY_API_KEY=tvly-your_tavily_api_key_here
+
+# 3. Mem0 Memory API Key (Required for personalized user memory)
+# Get your free key at: https://app.mem0.ai/dashboard/api-keys
+MEM_AI_API_KEY=m0-your_mem0_api_key_here
+
+# 4. SerpAPI Key (Optional fallback search)
+# Get from: https://serpapi.com/
+SERP_API_KEY=your_serp_api_key_here
+
+# Model Overrides (Optional defaults)
+GROQ_LARGE_MODEL="openai/gpt-oss-120b"
+GROQ_FAST_MODEL="openai/gpt-oss-20b"
 ```
 
-### 5. Run the Application
+---
 
+### 8. Run the Application
+
+Launch the full web application:
 ```bash
 python app.py
 ```
 
-Access the app at: [http://localhost:5000](http://localhost:5000)
+Once started, open your web browser and navigate to:
+👉 **[http://localhost:5500](http://localhost:5500)**
 
-## Ollama Setup
+*(Alternatively, to run KIRA in terminal/CLI mode, execute `python main.py`)*
 
-To use **Ollama embeddings** for document chunking and vector representation, follow these steps:
+---
 
-### 1. Install Ollama
+## 💡 How to Use KIRA
 
-Download and install Ollama from the official site:
+1. **Ask Any Question**: Type your topic (e.g., *"Explain Photosynthesis"*, *"What are the recent updates in Quantum Computing?"*) or click the 🎙️ **Microphone icon** to speak.
+2. **Upload Documents (PDF RAG)**: Click **Upload PDFs** or select a folder. KIRA will extract text, create embeddings, and switch the status dot to green (**PDFs loaded - RAG enabled**). Now, any question you ask will prioritize facts from your uploaded document.
+3. **Listen to Responses**: KIRA can automatically vocalize responses via the offline text-to-speech engine. Click **Stop Speech** anytime to pause audio.
 
-👉 [https://ollama.com/download](https://ollama.com/download)
+---
 
-After installation, ensure it is accessible in your terminal:
+## 🔧 Troubleshooting & Tips
 
-```bash
-ollama --version
-```
+- **PowerShell Activation Error (`Activate.ps1 cannot be loaded`)**:
+  Run this command in PowerShell before activating:
+  ```powershell
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  ```
+- **Port 5500 Already in Use**:
+  If port 5500 is occupied, you can change the port number in the last line of `app.py`:
+  ```python
+  app.run(host="0.0.0.0", port=5500, debug=True)
+  ```
+- **Ollama Connection Refused**:
+  Make sure `ollama serve` is running in the background and `ollama list` displays `mxbai-embed-large:latest`.
+- **Speech Recognition Model Not Found**:
+  Verify that the folder name in your root directory is strictly named `vosk-model-en-in-0.5`.
 
-### 2. Pull the Required Model
+---
 
-Pull a supported embedding model like `mxbai-embed-large` or any other compatible model:
+## 👤 Author & Contributions
 
-```bash
-ollama pull mxbai-embed-large
-```
+- **Created by**: **Aman Kushwaha** ([@AmanKushwaha2006](https://github.com/AmanKushwaha2006))
+- **Repository**: [https://github.com/AmanKushwaha2006/AI_TUTOR](https://github.com/AmanKushwaha2006/AI_TUTOR)
 
-### 3. Start Ollama Server (if required)
-
-Ollama typically runs as a background service. If not, you can start it manually:
-
-```bash
-ollama serve
-```
-
-### 4. Integration in AI Tutor
-
-The application uses Ollama to embed chunks of PDF/text using:
-
-- `mxbai-embed-large` or any embedding model you configure
-- Embeddings are stored in FAISS vector store and used for cosine similarity-based retrieval
-
-Ensure your `.env` or config file includes proper references to use Ollama embeddings.
-
-```env
-OLLAMA_MODEL=mxbai-embed-large
-```
-
-You’re now ready to use Ollama with AI Tutor🌟
-
-## Example Usage
-
-### Voice Query
-
-> "Explain Newton's second law"
-
-- ✅ Converts to text → Checks for PDF → Fetches embedded context (if available) → Responds via Gemini + TTS
-
-### Text Query Without Upload
-
-> "What is quantum entanglement?"
-
-- ❌ No documents → 🌐 Web scraping triggered → 🧠 Top 3 results shown + 🔊 Voice explanation
-
-### Text Query With Upload
-
-> Upload a PDF → Ask "Summarize Chapter 2"
-
-- ✅ FAISS retrieves PDF chunks → Gemini refines answer using those → 🎧 Output is spoken
-
-## To-Do / Future Enhancements
-
-- ✅ Add image-based query support (Multimodal)
-- 🔄 Integrate quiz and flashcards generation from uploaded materials
-- 🔒 Secure backend in GOlang/Python
-- 🚀 Scaling and deployment using Docker + Firebase
-
-## Credits
-
-- Developed by Vaibhav Gupta, Shweta Maurya, Shreya Pandey, Vartika Upadhyay
-- Built using Google's Gemini API, FAISS, Langchain, and Ollama
-- Open-source contributions are welcome 🤝
+Contributions, feature suggestions, and stars are welcome! Feel free to open an issue or submit a pull request.
