@@ -11,7 +11,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from voice_assist.speech_to_text import speech_to_text
+from voice_assist.speech_to_text import speech_to_text, stop_speech_recognition
 from voice_assist.text_to_speech import say, stop_speech
 from RAG.rag_pipeline import index_pdfs, retrieve_answer
 from tools.rag_tool import make_rag_tool
@@ -179,6 +179,15 @@ def handle_stop_speech():
         print(f"Error stopping speech: {e}")
         return jsonify({"error": f"Failed to stop speech: {str(e)}"}), 500
 
-    
+@app.route("/stop-listening", methods=["POST"])
+def handle_stop_listening():
+    """Stops speech recognition and finalizes the transcribed text."""
+    try:
+        stop_speech_recognition()
+        return jsonify({"success": True, "message": "Listening stopped"})
+    except Exception as e:
+        print(f"Error stopping listening: {e}")
+        return jsonify({"error": f"Failed to stop listening: {str(e)}"}), 500
+
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5500, debug=True)
+    app.run(host='0.0.0.0', port=5500, debug=True, threaded=True)

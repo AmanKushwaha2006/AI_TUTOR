@@ -294,66 +294,87 @@ function sendMessage() {
 
 function toggleVoiceInput() {
     if (isListening) {
-        stopListening();
+        stopVoiceInput();
     } else {
         startVoiceInput();
     }
 }
 
 function startVoiceInput() {
-    let popup = document.getElementById("listening-popup");
-    let micButton = document.querySelector(".mic-button");
-
-    // Toggle listening state
     if (isListening) {
-        // If already listening, stop it
-        stopListening();
-        
-        // Call backend to stop listening process
-        fetch("/stop-listening", { method: "POST" })
-        .then(() => console.log("Speech recognition stopped by user"));
-        
+        stopVoiceInput();
         return;
     }
-    
-    // Start listening
+
+    let popup = document.getElementById("listening-popup");
+    let micButton = document.querySelector(".mic-button");
+    let listeningText = document.getElementById("listening-text");
+
     isListening = true;
-    micButton.classList.add("active");
-    popup.classList.remove("hidden");
-    
-    // Show the listening popup with waves
-    document.getElementById("listening-text").textContent = "Listening...";
-    
+    if (micButton) micButton.classList.add("active");
+    if (popup) popup.classList.remove("hidden");
+    if (listeningText) listeningText.textContent = "🎤 Listening to your sentence...";
+
     fetch("/speech-to-text", { method: "POST" })
     .then(response => response.json())
     .then(data => {
-        // Stop listening state
-        stopListening();
-        
+        closeListeningUI();
+
         // Update input field with recognized text
-        document.getElementById("user-input").value = data.query;
-        
-        // If we got valid text, send the message
         if (data.query && data.query.trim() !== "") {
+            document.getElementById("user-input").value = data.query;
             sendMessage();
+        } else {
+            console.log("No speech transcribed");
         }
     })
     .catch(error => {
         console.error("Speech recognition error:", error);
-        stopListening();
+        closeListeningUI();
     });
 }
 
-function stopListening() {
-    let popup = document.getElementById("listening-popup");
-    let micButton = document.querySelector(".mic-button");
-    
-    isListening = false;
-    micButton.classList.remove("active");
-    popup.classList.add("hidden");
+function stopVoiceInput() {
+    if (!isListening) return;
+
+    let listeningText = document.getElementById("listening-text");
+    if (listeningText) {
+        listeningText.textContent = "⏳ Finalizing your sentence...";
+    }
+
+    // Call backend to tell Vosk recognizer to stop collecting and return complete sentence
+    fetch("/stop-listening", { method: "POST" })
+    .then(response => response.json())
+    .then(data => console.log("Stop listening signal acknowledged:", data))
+    .catch(error => console.error("Error signaling stop listening:", error));
 }
 
+function closeListeningUI() {
+    isListening = false;
+    let popup = document.getElementById("listening-popup");
+    let micButton = document.querySelector(".mic-button");
+    let listeningText = document.getElementById("listening-text");
+
+    if (micButton) micButton.classList.remove("active");
+    if (popup) popup.classList.add("hidden");
+    if (listeningText) listeningText.textContent = "🎤 Listening to your sentence...";
+}
+
+// Global key listener: Pressing Escape or Enter while listening stops recording and finalizes
+document.addEventListener("keydown", function(event) {
+    if (isListening && (event.key === "Escape" || event.key === "Enter")) {
+        event.preventDefault();
+        stopVoiceInput();
+    }
+});
+
 function stopSpeech() {
+    // If voice recognition is currently listening, stop listening instead
+    if (isListening) {
+        stopVoiceInput();
+        return;
+    }
+
     // Visual feedback that the button was clicked
     const stopButton = document.querySelector('.stop-button');
     const originalContent = stopButton.innerHTML;
