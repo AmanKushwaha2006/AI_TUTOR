@@ -16,7 +16,7 @@ from testFrontend.FlaskApp.app import app
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("Starting KIRA: AI Tutor Web Application")
+    print("Starting ORION: AI Tutor Web Application")
     print("Access the web UI at: http://localhost:5500")
     print("=" * 60)
     app.run(host="0.0.0.0", port=5500, debug=True)

@@ -1,4 +1,4 @@
-# 🎓 KIRA: AI Tutor - Voice-Enabled Intelligent Multi-Agent Learning Assistant
+# 🎓 ORION: AI Tutor - Voice-Enabled Intelligent Multi-Agent Learning Assistant
 
 [![GitHub Repository](https://img.shields.io/badge/GitHub-AmanKushwaha2006%2FAI__TUTOR-blue?logo=github)](https://github.com/AmanKushwaha2006/AI_TUTOR)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-brightgreen?logo=python)](https://www.python.org/)
@@ -6,7 +6,7 @@
 [![LLM Provider](https://img.shields.io/badge/LLM-Groq%20Cloud-purple)](https://groq.com/)
 [![Local Embeddings](https://img.shields.io/badge/Embeddings-Ollama%20(mxbai--embed--large)-black)](https://ollama.com/)
 
-**KIRA (The Voice of Knowledge)** is an intelligent, multimodal AI tutor application built using **Flask**, **LangGraph**, **LangChain**, and high-speed **Groq LLMs**. 
+**ORION (The Voice of Knowledge)** is an intelligent, multimodal AI tutor application built using **Flask**, **LangGraph**, **LangChain**, and high-speed **Groq LLMs**. 
 
 It features an autonomous **multi-agent pipeline** (Researcher, Drafter, Verifier, Enhancer), personalized long-term and short-term memory with **Mem0**, local document understanding via **RAG (FAISS + Ollama embeddings)**, offline Indian-English speech recognition via **Vosk**, and clean, human-readable list-wise formatting.
 
@@ -15,7 +15,7 @@ It features an autonomous **multi-agent pipeline** (Researcher, Drafter, Verifie
 ## 🌟 Key Features
 
 ### 🧠 1. Multi-Agent LangGraph Architecture
-Unlike simple single-prompt bots, KIRA routes queries through a multi-agent state graph:
+Unlike simple single-prompt bots, ORION routes queries through a multi-agent state graph:
 - **Memory Retrieval Agent**: Pulls relevant short-term context and long-term user memories via Mem0.
 - **Researcher Agent**: Intelligently searches through uploaded PDF documents (RAG) or conducts multi-source live web research (Tavily, Wikipedia, ArXiv, Web Scraper).
 - **Drafter Agent**: Formulates a detailed first-pass educational response.
@@ -23,8 +23,8 @@ Unlike simple single-prompt bots, KIRA routes queries through a multi-agent stat
 - **Enhancer Agent**: Refines tone into structured, clear, human-friendly bullet lists without cluttered or unreadable tables.
 
 ### 📄 2. Dual Operation Modes (RAG vs. Live Web)
-- **Document Mode (RAG Enabled)**: Upload single or multiple PDFs. KIRA extracts, chunks, and embeds them into a local FAISS vector store using local Ollama embeddings (`mxbai-embed-large`), answering questions specifically grounded in your documents.
-- **Web Research Mode**: When no documents are uploaded, KIRA autonomously searches the live web using Tavily AI, Wikipedia, and ArXiv to find up-to-date facts and learning materials.
+- **Document Mode (RAG Enabled)**: Upload single or multiple PDFs. ORION extracts, chunks, and embeds them into a local FAISS vector store using local Ollama embeddings (`mxbai-embed-large`), answering questions specifically grounded in your documents.
+- **Web Research Mode**: When no documents are uploaded, ORION autonomously searches the live web using Tavily AI, Wikipedia, and ArXiv to find up-to-date facts and learning materials.
 
 ### 🎙️ 3. Voice-Enabled Learning (Offline & Low Latency)
 - **Speech-to-Text**: High-accuracy offline speech recognition powered by the **Vosk Indian-English model** (`vosk-model-en-in-0.5`), requiring no external speech API quotas.
@@ -97,7 +97,7 @@ AI_TUTOR/
 │       └── index.html            # Main tutor chat interface
 │
 ├── app.py                        # Root entry point to run Flask web app (Port 5500)
-├── main.py                       # CLI interface to run KIRA in terminal mode
+├── main.py                       # CLI interface to run ORION in terminal mode
 ├── tutor.py                      # Core execution pipeline runner
 ├── requirements.txt              # Complete Python package dependencies
 ├── .env.example                  # Template for required environment variables
@@ -163,7 +163,7 @@ pip install -r requirements.txt
 
 ### 5. Install & Set Up Ollama (for Local Document Embeddings)
 
-KIRA uses **Ollama** locally to generate embeddings for document chunks during PDF uploads:
+ORION uses **Ollama** locally to generate embeddings for document chunks during PDF uploads:
 
 1. Download and install Ollama from [https://ollama.com/download](https://ollama.com/download).
 2. Start the Ollama background service:
@@ -242,15 +242,15 @@ python app.py
 Once started, open your web browser and navigate to:
 👉 **[http://localhost:5500](http://localhost:5500)**
 
-*(Alternatively, to run KIRA in terminal/CLI mode, execute `python main.py`)*
+*(Alternatively, to run ORION in terminal/CLI mode, execute `python main.py`)*
 
 ---
 
-## 💡 How to Use KIRA
+## 💡 How to Use ORION
 
 1. **Ask Any Question**: Type your topic (e.g., *"Explain Photosynthesis"*, *"What are the recent updates in Quantum Computing?"*) or click the 🎙️ **Microphone icon** to speak.
-2. **Upload Documents (PDF RAG)**: Click **Upload PDFs** or select a folder. KIRA will extract text, create embeddings, and switch the status dot to green (**PDFs loaded - RAG enabled**). Now, any question you ask will prioritize facts from your uploaded document.
-3. **Listen to Responses**: KIRA can automatically vocalize responses via the offline text-to-speech engine. Click **Stop Speech** anytime to pause audio.
+2. **Upload Documents (PDF RAG)**: Click **Upload PDFs** or select a folder. ORION will extract text, create embeddings, and switch the status dot to green (**PDFs loaded - RAG enabled**). Now, any question you ask will prioritize facts from your uploaded document.
+3. **Listen to Responses**: ORION can automatically vocalize responses via the offline text-to-speech engine. Click **Stop Speech** anytime to pause audio.
 
 ---
 
