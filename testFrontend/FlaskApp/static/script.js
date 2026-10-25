@@ -1,467 +1,639 @@
-document.addEventListener("DOMContentLoaded", function() {
-    // Enter key event listener
-    document.getElementById("user-input").addEventListener("keypress", function(event) {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            sendMessage();
-        }
-    });
+/* ==========================================================================
+   ORION: Next-Gen AI Tutor Web UI Controller
+   Features: Multi-agent query, Offline Voice Recognition, RAG Integration,
+             Topic Selection, Clipboard copying, Audio playback.
+   ========================================================================== */
 
-    // Clear session when page is refreshed or loaded
-    clearSession();
+document.addEventListener("DOMContentLoaded", function () {
+  // Enter key event listener on input field
+  const userInput = document.getElementById("user-input");
+  if (userInput) {
+    userInput.addEventListener("keydown", handleTextareaInput);
+  }
+
+  // Clear session on fresh page load/refresh
+  clearSession();
 });
 
-// Global variables
+// Global state
 let isListening = false;
 
-// Function to clear session on page load/refresh
+// Scroll chat viewport to bottom
+function scrollToBottom() {
+  const chatBox = document.getElementById("chat-box");
+  const viewport = document.querySelector(".chat-viewport");
+  if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+  if (viewport) viewport.scrollTop = viewport.scrollHeight;
+}
+
+// Clear session when page is refreshed or new chat started
 function clearSession() {
-    fetch("/clear-session", {
-        method: "POST"
+  fetch("/clear-session", {
+    method: "POST",
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Session cleared:", data.message);
+      updateRagStatus(false);
     })
-    .then(response => response.json())
-    .then(data => {
-        console.log("Session cleared:", data.message);
-        // Reset RAG status indicator
-        updateRagStatus(false);
-    })
-    .catch(error => {
-        console.error("Error clearing session:", error);
+    .catch((error) => {
+      console.error("Error clearing session:", error);
     });
 }
 
+// Start New Chat (Reset UI and state)
+function startNewChat() {
+  const chatBox = document.getElementById("chat-box");
+  if (chatBox) chatBox.innerHTML = "";
+
+  const heroSection = document.getElementById("hero-section");
+  if (heroSection) heroSection.classList.remove("collapsed");
+
+  const input = document.getElementById("user-input");
+  if (input) {
+    input.value = "";
+    input.style.height = "auto";
+  }
+
+  clearSession();
+  stopSpeech();
+
+  setTimeout(() => {
+    showWelcomeMessage();
+  }, 350);
+}
+
+// Triggered when user clicks a topic card
+function selectTopic(queryText) {
+  const input = document.getElementById("user-input");
+  if (input) {
+    input.value = queryText;
+  }
+  const heroSection = document.getElementById("hero-section");
+  if (heroSection) {
+    heroSection.classList.add("collapsed");
+  }
+  sendMessage();
+}
+
+// Triggered from Document RAG topic card
+function triggerPdfUploadPrompt() {
+  const fileInput = document.getElementById("pdf-files");
+  if (fileInput) fileInput.click();
+}
+
+// Copy AI response text to clipboard
+function copyMessageText(btn) {
+  const aiMessage = btn.closest(".ai-message");
+  if (!aiMessage) return;
+  const bodyText = aiMessage.querySelector(".ai-body")?.innerText || "";
+
+  navigator.clipboard
+    .writeText(bodyText)
+    .then(() => {
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Copied!</span>`;
+      btn.style.color = "#34d399";
+      setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.style.color = "";
+      }, 1800);
+    })
+    .catch((err) => {
+      console.error("Failed to copy:", err);
+    });
+}
+
+// Speak specific message
+function speakMessageText(btn) {
+  const aiMessage = btn.closest(".ai-message");
+  if (!aiMessage) return;
+  const bodyText = aiMessage.querySelector(".ai-body")?.innerText || "";
+  fetch("/text-to-speech", {
+    method: "POST",
+    body: JSON.stringify({ text: bodyText }),
+    headers: { "Content-Type": "application/json" },
+  })
+    .then((response) => response.json())
+    .catch((error) => console.error("Error speaking message:", error));
+}
+
+// Display uploaded files badge in chat
 function displayFileNames(files) {
-    const chatBox = document.getElementById("chat-box");
-    const fileNameDisplay = document.createElement("div");
-    fileNameDisplay.className = "file-name-display";
-    
-    const fileNames = Array.from(files).map(file => file.name).join(", ");
-    fileNameDisplay.innerHTML = `<strong>ORION:</strong> Loading documents: ${fileNames}`;
-    chatBox.appendChild(fileNameDisplay);
-    chatBox.scrollTop = chatBox.scrollHeight;
+  const chatBox = document.getElementById("chat-box");
+  const fileNameDisplay = document.createElement("div");
+  fileNameDisplay.className = "file-name-display";
+
+  const fileNames = Array.from(files)
+    .map((file) => `📄 ${file.name}`)
+    .join(", ");
+  fileNameDisplay.innerHTML = `<strong>ORION:</strong> Loading study documents: ${fileNames}`;
+  chatBox.appendChild(fileNameDisplay);
+  scrollToBottom();
 }
 
+// Handle single or multiple PDF file uploads
 function handleFileUpload(files) {
-    if (!files || files.length === 0) return;
+  if (!files || files.length === 0) return;
 
-    // Display file names in chat
-    displayFileNames(files);
+  const heroSection = document.getElementById("hero-section");
+  if (heroSection) heroSection.classList.add("collapsed");
 
-    // Display initializing message
-    const chatBox = document.getElementById("chat-box");
-    const initializingMessage = document.createElement("div");
-    initializingMessage.className = "ai-message";
-    initializingMessage.innerHTML = `<strong>ORION:</strong> Initializing RAG system with documents...`;
-    chatBox.appendChild(initializingMessage);
-    chatBox.scrollTop = chatBox.scrollHeight;
+  displayFileNames(files);
 
-    // Show loading indicator
-    document.getElementById("loading-indicator").classList.remove("hidden");
+  const chatBox = document.getElementById("chat-box");
+  const initializingMessage = document.createElement("div");
+  initializingMessage.className = "ai-message";
+  initializingMessage.innerHTML = `
+    <div class="ai-header">
+      <div class="ai-author">
+        <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+        <span>ORION</span>
+        <span class="ai-badge">RAG SYSTEM</span>
+      </div>
+    </div>
+    <div class="ai-body"><p>Initializing RAG system with uploaded PDF documents...</p></div>
+  `;
+  chatBox.appendChild(initializingMessage);
+  scrollToBottom();
 
-    const formData = new FormData();
-    Array.from(files).forEach(file => {
-        formData.append('files', file);
-    });
+  // Show loading overlay
+  const loadingIndicator = document.getElementById("loading-indicator");
+  if (loadingIndicator) loadingIndicator.classList.remove("hidden");
 
-    fetch("/initialize-rag", {
-        method: "POST",
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Hide loading indicator
-        document.getElementById("loading-indicator").classList.add("hidden");
-        
-        const chatBox = document.getElementById("chat-box");
-        const ragMessage = document.createElement("div");
-        ragMessage.className = "ai-message";
+  const formData = new FormData();
+  Array.from(files).forEach((file) => {
+    formData.append("files", file);
+  });
 
-        if (data.success) {
-            ragMessage.innerHTML = `<strong>ORION:</strong> ✅ RAG initialized successfully! You can now ask questions about the uploaded documents.`;
-            updateRagStatus(true);
-        } else {
-            ragMessage.innerHTML = `<strong>ORION:</strong> ❌ Failed to initialize RAG. Falling back to standard response generation.`;
-            updateRagStatus(false);
-        }
+  fetch("/initialize-rag", {
+    method: "POST",
+    body: formData,
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (loadingIndicator) loadingIndicator.classList.add("hidden");
 
-        chatBox.appendChild(ragMessage);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    })
-    .catch(error => {
-        // Hide loading indicator
-        document.getElementById("loading-indicator").classList.add("hidden");
-        
-        console.error("RAG initialization error:", error);
-        
-        const chatBox = document.getElementById("chat-box");
-        const errorMessage = document.createElement("div");
-        errorMessage.className = "ai-message";
-        errorMessage.innerHTML = `<strong>ORION:</strong> ❌ Error initializing RAG. Falling back to standard response generation.`;
-        chatBox.appendChild(errorMessage);
-        chatBox.scrollTop = chatBox.scrollHeight;
-        
+      const ragMessage = document.createElement("div");
+      ragMessage.className = "ai-message";
+
+      if (data.success) {
+        ragMessage.innerHTML = `
+          <div class="ai-header">
+            <div class="ai-author">
+              <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+              <span>ORION</span>
+              <span class="ai-badge">RAG ACTIVE</span>
+            </div>
+          </div>
+          <div class="ai-body"><p>✅ <strong>RAG initialized successfully!</strong> You can now ask questions directly grounded in your uploaded documents.</p></div>
+        `;
+        updateRagStatus(true);
+      } else {
+        ragMessage.innerHTML = `
+          <div class="ai-header">
+            <div class="ai-author">
+              <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+              <span>ORION</span>
+            </div>
+          </div>
+          <div class="ai-body"><p>❌ Failed to initialize RAG. Falling back to standard live research mode.</p></div>
+        `;
         updateRagStatus(false);
+      }
+
+      chatBox.appendChild(ragMessage);
+      scrollToBottom();
+    })
+    .catch((error) => {
+      if (loadingIndicator) loadingIndicator.classList.add("hidden");
+      console.error("RAG initialization error:", error);
+
+      const errorMessage = document.createElement("div");
+      errorMessage.className = "ai-message";
+      errorMessage.innerHTML = `
+        <div class="ai-header">
+          <div class="ai-author">
+            <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+            <span>ORION</span>
+          </div>
+        </div>
+        <div class="ai-body"><p>❌ Error initializing RAG. Falling back to standard live research mode.</p></div>
+      `;
+      chatBox.appendChild(errorMessage);
+      scrollToBottom();
+      updateRagStatus(false);
     });
 }
 
+// Handle folder uploads
 function handleFolderUpload(files) {
-    if (!files || files.length === 0) return;
+  if (!files || files.length === 0) return;
 
-    // Display folder name in chat
-    const folderName = files[0].webkitRelativePath.split('/')[0];
-    const chatBox = document.getElementById("chat-box");
-    const folderNameDisplay = document.createElement("div");
-    folderNameDisplay.className = "file-name-display";
-    folderNameDisplay.innerHTML = `<strong>ORION:</strong> Loading documents from folder: ${folderName}`;
-    chatBox.appendChild(folderNameDisplay);
-    chatBox.scrollTop = chatBox.scrollHeight;
+  const heroSection = document.getElementById("hero-section");
+  if (heroSection) heroSection.classList.add("collapsed");
 
-    // Display initializing message
-    const initializingMessage = document.createElement("div");
-    initializingMessage.className = "ai-message";
-    initializingMessage.innerHTML = `<strong>ORION:</strong> Initializing RAG system with folder documents...`;
-    chatBox.appendChild(initializingMessage);
-    chatBox.scrollTop = chatBox.scrollHeight;
+  const folderName = files[0].webkitRelativePath.split("/")[0];
+  const chatBox = document.getElementById("chat-box");
 
-    // Show loading indicator
-    document.getElementById("loading-indicator").classList.remove("hidden");
+  const folderNameDisplay = document.createElement("div");
+  folderNameDisplay.className = "file-name-display";
+  folderNameDisplay.innerHTML = `<strong>ORION:</strong> Loading folder documents: 📁 ${folderName}`;
+  chatBox.appendChild(folderNameDisplay);
+  scrollToBottom();
 
-    // Get the first file's webkitRelativePath to extract the folder
-    const folderPath = files[0].webkitRelativePath.split('/')[0];
+  const loadingIndicator = document.getElementById("loading-indicator");
+  if (loadingIndicator) loadingIndicator.classList.remove("hidden");
 
-    const formData = new FormData();
-    formData.append('folder', folderPath);
+  const formData = new FormData();
+  formData.append("folder", folderName);
 
-    fetch("/initialize-rag", {
-        method: "POST",
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Hide loading indicator
-        document.getElementById("loading-indicator").classList.add("hidden");
-        
-        const ragMessage = document.createElement("div");
-        ragMessage.className = "ai-message";
+  fetch("/initialize-rag", {
+    method: "POST",
+    body: formData,
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (loadingIndicator) loadingIndicator.classList.add("hidden");
 
-        if (data.success) {
-            ragMessage.innerHTML = `<strong>ORION:</strong> ✅ RAG initialized successfully with folder documents! You can now ask questions about the uploaded documents.`;
-            updateRagStatus(true);
-        } else {
-            ragMessage.innerHTML = `<strong>ORION:</strong> ❌ Failed to initialize RAG. Falling back to standard response generation.`;
-            updateRagStatus(false);
-        }
+      const ragMessage = document.createElement("div");
+      ragMessage.className = "ai-message";
 
-        chatBox.appendChild(ragMessage);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    })
-    .catch(error => {
-        // Hide loading indicator
-        document.getElementById("loading-indicator").classList.add("hidden");
-        
-        console.error("RAG initialization error:", error);
-        
-        const errorMessage = document.createElement("div");
-        errorMessage.className = "ai-message";
-        errorMessage.innerHTML = `<strong>ORION:</strong> ❌ Error initializing RAG. Falling back to standard response generation.`;
-        chatBox.appendChild(errorMessage);
-        chatBox.scrollTop = chatBox.scrollHeight;
-        
+      if (data.success) {
+        ragMessage.innerHTML = `
+          <div class="ai-header">
+            <div class="ai-author">
+              <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+              <span>ORION</span>
+              <span class="ai-badge">RAG ACTIVE</span>
+            </div>
+          </div>
+          <div class="ai-body"><p>✅ <strong>RAG initialized successfully with folder documents!</strong> You can now ask questions about the uploaded material.</p></div>
+        `;
+        updateRagStatus(true);
+      } else {
+        ragMessage.innerHTML = `
+          <div class="ai-header">
+            <div class="ai-author">
+              <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+              <span>ORION</span>
+            </div>
+          </div>
+          <div class="ai-body"><p>❌ Failed to initialize RAG with folder documents.</p></div>
+        `;
         updateRagStatus(false);
+      }
+
+      chatBox.appendChild(ragMessage);
+      scrollToBottom();
+    })
+    .catch((error) => {
+      if (loadingIndicator) loadingIndicator.classList.add("hidden");
+      console.error("RAG folder initialization error:", error);
+
+      const errorMessage = document.createElement("div");
+      errorMessage.className = "ai-message";
+      errorMessage.innerHTML = `
+        <div class="ai-header">
+          <div class="ai-author">
+            <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+            <span>ORION</span>
+          </div>
+        </div>
+        <div class="ai-body"><p>❌ Error initializing RAG with folder.</p></div>
+      `;
+      chatBox.appendChild(errorMessage);
+      scrollToBottom();
+      updateRagStatus(false);
     });
 }
 
+// Update Header Status Badge
 function updateRagStatus(isActive) {
-    const statusDot = document.querySelector('.status-dot');
-    const statusText = document.querySelector('.status-text');
-    
+  const statusDot = document.querySelector(".status-dot");
+  const statusText = document.querySelector(".status-text");
+
+  if (statusDot && statusText) {
     if (isActive) {
-        statusDot.classList.remove('inactive');
-        statusDot.classList.add('active');
-        statusText.textContent = 'PDFs loaded - RAG enabled';
+      statusDot.classList.remove("inactive");
+      statusDot.classList.add("active");
+      statusText.textContent = "📚 Document RAG Active";
     } else {
-        statusDot.classList.remove('active');
-        statusDot.classList.add('inactive');
-        statusText.textContent = 'No PDFs loaded';
+      statusDot.classList.remove("active");
+      statusDot.classList.add("inactive");
+      statusText.textContent = "🌐 Web Research Mode";
     }
+  }
 }
 
-// Function to create or update the thinking state
+// Render animated thinking / synthesis indicator
 function setAIMessageToThinking(messageElement) {
-    // Add the thinking class
-    messageElement.classList.add('thinking');
-    
-    // Check if dots already exist
-    let dotsContainer = messageElement.querySelector('.thinking-dots');
-    
-    // If not, create them
-    if (!dotsContainer) {
-        dotsContainer = document.createElement('div');
-        dotsContainer.className = 'thinking-dots';
-        
-        // Create 3 dots
-        for (let i = 0; i < 3; i++) {
-            const dot = document.createElement('div');
-            dot.className = 'thinking-dot';
-            dotsContainer.appendChild(dot);
-        }
-        
-        // Add "ORION:" label
-        const label = document.createElement('strong');
-        label.textContent = 'ORION:';
-        messageElement.appendChild(label);
-        messageElement.appendChild(dotsContainer);
-    }
+  messageElement.innerHTML = `
+    <div class="thinking-box">
+      <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+      <span>ORION is synthesizing knowledge</span>
+      <div class="thinking-dots">
+        <div class="thinking-dot"></div>
+        <div class="thinking-dot"></div>
+        <div class="thinking-dot"></div>
+      </div>
+    </div>
+  `;
 }
 
+// Send Message
 function sendMessage() {
-    let userInput = document.getElementById("user-input").value.trim();
-    if (userInput === "") return;
+  const inputElem = document.getElementById("user-input");
+  let userInput = inputElem.value.trim();
+  if (userInput === "") return;
 
-    let chatBox = document.getElementById("chat-box");
+  // Collapse hero section
+  const heroSection = document.getElementById("hero-section");
+  if (heroSection) {
+    heroSection.classList.add("collapsed");
+  }
 
-    // Display user message (Right-aligned)
-    let userMessage = document.createElement("div");
-    userMessage.className = "user-message";
-    userMessage.innerHTML = `<strong>You:</strong> ${userInput}`;
-    chatBox.appendChild(userMessage);
-    
-    // Create and show thinking message with animated dots
-    let thinkingMessage = document.createElement("div");
-    thinkingMessage.className = "ai-message";
-    setAIMessageToThinking(thinkingMessage);
-    chatBox.appendChild(thinkingMessage);
-    
-    chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
+  const chatBox = document.getElementById("chat-box");
 
-    // Send request to backend
-    fetch("/ask", {
-        method: "POST",
-        body: JSON.stringify({ query: userInput }),
-        headers: { "Content-Type": "application/json" }
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Remove thinking message
+  // Display user message (Right-aligned)
+  const userMessage = document.createElement("div");
+  userMessage.className = "user-message";
+  userMessage.innerHTML = `<strong>You:</strong> ${userInput.replace(/</g, "&lt;").replace(/>/g, "&gt;")}`;
+  chatBox.appendChild(userMessage);
+
+  // Clear input field and reset height
+  inputElem.value = "";
+  inputElem.style.height = "auto";
+
+  // Create and show thinking state
+  const thinkingMessage = document.createElement("div");
+  thinkingMessage.className = "ai-message";
+  setAIMessageToThinking(thinkingMessage);
+  chatBox.appendChild(thinkingMessage);
+
+  scrollToBottom();
+
+  // Send request to backend
+  fetch("/ask", {
+    method: "POST",
+    body: JSON.stringify({ query: userInput }),
+    headers: { "Content-Type": "application/json" },
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      // Remove thinking message
+      if (thinkingMessage.parentNode === chatBox) {
         chatBox.removeChild(thinkingMessage);
-        
-        // Display AI response (Left-aligned)
-        let aiMessage = document.createElement("div");
-        aiMessage.className = "ai-message";
-        let renderedHtml = (typeof marked !== "undefined" && marked.parse) 
-            ? marked.parse(data.response) 
-            : data.response.replace(/\n/g, '<br>');
-        aiMessage.innerHTML = `<div class="ai-header"><strong>ORION:</strong></div><div class="ai-body">${renderedHtml}</div>`;
-        chatBox.appendChild(aiMessage);
+      }
 
-        if (data.hasScraping && data.scraped) {
-            let scrapedInfo = document.createElement("div");
-            scrapedInfo.className = "scraped-info";
-            scrapedInfo.innerHTML = `<details>
-                <summary>📚 View scraped information</summary>
-                <div class="scraped-content">${data.scraped}</div>
-            </details>`;
-            chatBox.appendChild(scrapedInfo);
-        }
-        // If there was retrieval info and we want to show it
-        if (data.hasRetrieval && data.retrieved) {
-            let retrievalInfo = document.createElement("div");
-            retrievalInfo.className = "retrieval-info";
-            retrievalInfo.innerHTML = `<details>
-                <summary>📚 View retrieved information</summary>
-                <div class="retrieved-content">${data.retrieved}</div>
-            </details>`;
-            chatBox.appendChild(retrievalInfo);
-        }
-        
-        chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
+      // Display AI response
+      const aiMessage = document.createElement("div");
+      aiMessage.className = "ai-message";
+      let renderedHtml =
+        typeof marked !== "undefined" && marked.parse
+          ? marked.parse(data.response)
+          : data.response.replace(/\n/g, "<br>");
+
+      aiMessage.innerHTML = `
+        <div class="ai-header">
+          <div class="ai-author">
+            <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+            <span>ORION</span>
+            <span class="ai-badge">AI TUTOR</span>
+          </div>
+          <div class="ai-actions">
+            <button class="copy-btn" onclick="copyMessageText(this)" title="Copy Response">
+              <i class="fa-regular fa-copy"></i>
+              <span>Copy</span>
+            </button>
+            <button class="copy-btn" onclick="speakMessageText(this)" title="Read Aloud">
+              <i class="fa-solid fa-volume-high"></i>
+              <span>Listen</span>
+            </button>
+          </div>
+        </div>
+        <div class="ai-body">${renderedHtml}</div>
+      `;
+      chatBox.appendChild(aiMessage);
+
+      // Scraped information accordion
+      if (data.hasScraping && data.scraped) {
+        const scrapedInfo = document.createElement("div");
+        scrapedInfo.className = "scraped-info";
+        scrapedInfo.innerHTML = `
+          <details>
+            <summary><i class="fa-solid fa-globe"></i> View Web Research Citations</summary>
+            <div class="scraped-content">${data.scraped}</div>
+          </details>
+        `;
+        chatBox.appendChild(scrapedInfo);
+      }
+
+      // Retrieval information accordion
+      if (data.hasRetrieval && data.retrieved) {
+        const retrievalInfo = document.createElement("div");
+        retrievalInfo.className = "retrieval-info";
+        retrievalInfo.innerHTML = `
+          <details>
+            <summary><i class="fa-solid fa-book-bookmark"></i> View Document Evidence (RAG)</summary>
+            <div class="retrieved-content">${data.retrieved}</div>
+          </details>
+        `;
+        chatBox.appendChild(retrievalInfo);
+      }
+
+      scrollToBottom();
     })
-    .catch(error => {
-        // Remove thinking message
+    .catch((error) => {
+      if (thinkingMessage.parentNode === chatBox) {
         chatBox.removeChild(thinkingMessage);
-        
-        // Display error message
-        let errorMessage = document.createElement("div");
-        errorMessage.className = "ai-message error";
-        errorMessage.innerHTML = `<strong>ORION:</strong> Sorry, I encountered an error processing your request. Please try again.`;
-        chatBox.appendChild(errorMessage);
-        
-        console.error("Error sending message:", error);
+      }
+
+      const errorMessage = document.createElement("div");
+      errorMessage.className = "ai-message";
+      errorMessage.innerHTML = `
+        <div class="ai-header">
+          <div class="ai-author">
+            <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+            <span>ORION</span>
+          </div>
+        </div>
+        <div class="ai-body"><p>⚠️ Sorry, I encountered an error processing your question. Please verify your connection or try again.</p></div>
+      `;
+      chatBox.appendChild(errorMessage);
+      console.error("Error sending message:", error);
+      scrollToBottom();
     });
-
-    document.getElementById("user-input").value = ""; // Clear input field
 }
 
+// Voice input controls (Offline Vosk Speech-to-Text)
 function toggleVoiceInput() {
-    if (isListening) {
-        stopVoiceInput();
-    } else {
-        startVoiceInput();
-    }
+  if (isListening) {
+    stopVoiceInput();
+  } else {
+    startVoiceInput();
+  }
 }
 
 function startVoiceInput() {
-    if (isListening) {
-        stopVoiceInput();
-        return;
-    }
+  if (isListening) {
+    stopVoiceInput();
+    return;
+  }
 
-    let popup = document.getElementById("listening-popup");
-    let micButton = document.querySelector(".mic-button");
-    let listeningText = document.getElementById("listening-text");
+  const popup = document.getElementById("listening-popup");
+  const micButton = document.querySelector(".mic-button");
+  const listeningText = document.getElementById("listening-text");
 
-    isListening = true;
-    if (micButton) micButton.classList.add("active");
-    if (popup) popup.classList.remove("hidden");
-    if (listeningText) listeningText.textContent = "🎤 Listening to your sentence...";
+  isListening = true;
+  if (micButton) micButton.classList.add("active");
+  if (popup) popup.classList.remove("hidden");
+  if (listeningText) listeningText.textContent = "Listening to your sentence...";
 
-    fetch("/speech-to-text", { method: "POST" })
-    .then(response => response.json())
-    .then(data => {
-        closeListeningUI();
+  fetch("/speech-to-text", { method: "POST" })
+    .then((response) => response.json())
+    .then((data) => {
+      closeListeningUI();
 
-        // Update input field with recognized text
-        if (data.query && data.query.trim() !== "") {
-            document.getElementById("user-input").value = data.query;
-            sendMessage();
-        } else {
-            console.log("No speech transcribed");
+      if (data.query && data.query.trim() !== "") {
+        const userInput = document.getElementById("user-input");
+        if (userInput) {
+          userInput.value = data.query;
+          sendMessage();
         }
+      } else {
+        console.log("No speech transcribed");
+      }
     })
-    .catch(error => {
-        console.error("Speech recognition error:", error);
-        closeListeningUI();
+    .catch((error) => {
+      console.error("Speech recognition error:", error);
+      closeListeningUI();
     });
 }
 
 function stopVoiceInput() {
-    if (!isListening) return;
+  if (!isListening) return;
 
-    let listeningText = document.getElementById("listening-text");
-    if (listeningText) {
-        listeningText.textContent = "⏳ Finalizing your sentence...";
-    }
+  const listeningText = document.getElementById("listening-text");
+  if (listeningText) {
+    listeningText.textContent = "Finalizing your sentence...";
+  }
 
-    // Call backend to tell Vosk recognizer to stop collecting and return complete sentence
-    fetch("/stop-listening", { method: "POST" })
-    .then(response => response.json())
-    .then(data => console.log("Stop listening signal acknowledged:", data))
-    .catch(error => console.error("Error signaling stop listening:", error));
+  fetch("/stop-listening", { method: "POST" })
+    .then((response) => response.json())
+    .then((data) => console.log("Stop listening acknowledged:", data))
+    .catch((error) => console.error("Error signaling stop listening:", error));
 }
 
 function closeListeningUI() {
-    isListening = false;
-    let popup = document.getElementById("listening-popup");
-    let micButton = document.querySelector(".mic-button");
-    let listeningText = document.getElementById("listening-text");
+  isListening = false;
+  const popup = document.getElementById("listening-popup");
+  const micButton = document.querySelector(".mic-button");
+  const listeningText = document.getElementById("listening-text");
 
-    if (micButton) micButton.classList.remove("active");
-    if (popup) popup.classList.add("hidden");
-    if (listeningText) listeningText.textContent = "🎤 Listening to your sentence...";
+  if (micButton) micButton.classList.remove("active");
+  if (popup) popup.classList.add("hidden");
+  if (listeningText) listeningText.textContent = "Listening to your sentence...";
 }
 
-// Global key listener: Pressing Escape or Enter while listening stops recording and finalizes
-document.addEventListener("keydown", function(event) {
-    if (isListening && (event.key === "Escape" || event.key === "Enter")) {
-        event.preventDefault();
-        stopVoiceInput();
-    }
+// Key listener for listening popup
+document.addEventListener("keydown", function (event) {
+  if (isListening && (event.key === "Escape" || event.key === "Enter")) {
+    event.preventDefault();
+    stopVoiceInput();
+  }
 });
 
+// Stop audio speech output
 function stopSpeech() {
-    // If voice recognition is currently listening, stop listening instead
-    if (isListening) {
-        stopVoiceInput();
-        return;
-    }
+  if (isListening) {
+    stopVoiceInput();
+    return;
+  }
 
-    // Visual feedback that the button was clicked
-    const stopButton = document.querySelector('.stop-button');
-    const originalContent = stopButton.innerHTML;
-    stopButton.disabled = true;
-    stopButton.style.backgroundColor = '#ffffff';
-    stopButton.innerHTML = '⏱ Stopping...';
-    
-    // Make multiple attempts to stop the speech
-    function attemptStopSpeech(attempts = 3) {
-        fetch("/stop-speech", { 
-            method: "POST",
-            headers: { "Cache-Control": "no-cache" }  // Prevent caching
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log("Stop speech response:", data);
-            
-            if (data.success) {
-                stopButton.style.backgroundColor = '#ffffff';
-                stopButton.innerHTML = '✓ Stopped';
-                
-                setTimeout(() => {
-                    stopButton.disabled = false;
-                    stopButton.style.backgroundColor = '#ffffff';
-                    stopButton.innerHTML = originalContent;
-                }, 500);
-            } 
-            else if (attempts > 1) {
-                // Try again
-                console.log(`Speech stop attempt failed, trying again. ${attempts-1} attempts remaining`);
-                setTimeout(() => attemptStopSpeech(attempts - 1), 500);
-            }
-            else {
-                console.warn("Failed to stop speech after multiple attempts");
-                stopButton.disabled = false;
-                stopButton.style.backgroundColor = '#dc3545';
-                stopButton.innerHTML = originalContent;
-                
-                // Last resort: reload the page
-                if (confirm("Unable to stop speech. Would you like to reload the page to stop it?")) {
-                    window.location.reload();
-                }
-            }
-        })
-        .catch(error => {
-            console.error("Error stopping speech:", error);
-            stopButton.disabled = false;
-            stopButton.style.backgroundColor = '#dc3545';
-            stopButton.innerHTML = originalContent;
-        });
-    }
-    
-    attemptStopSpeech();
+  const stopBtn = document.querySelector(".stop-button");
+  const originalHtml = stopBtn ? stopBtn.innerHTML : "";
+  if (stopBtn) {
+    stopBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span class="btn-label">Stopping...</span>`;
+  }
+
+  fetch("/stop-speech", {
+    method: "POST",
+    headers: { "Cache-Control": "no-cache" },
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (stopBtn) {
+        stopBtn.innerHTML = `<i class="fa-solid fa-check"></i> <span class="btn-label">Stopped</span>`;
+        setTimeout(() => {
+          stopBtn.innerHTML = originalHtml;
+        }, 800);
+      }
+    })
+    .catch((error) => {
+      console.error("Error stopping speech:", error);
+      if (stopBtn) stopBtn.innerHTML = originalHtml;
+    });
 }
 
+// Auto-resize and handle Enter key in textarea
 function handleTextareaInput(event) {
-    // Allow for shift+enter to create a new line without submitting
-    if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
-    }
-    
-    // Auto-resize the textarea
-    const textarea = event.target;
-    textarea.style.height = "auto";
-    const newHeight = Math.min(textarea.scrollHeight, 150); // Max height of 150px
-    textarea.style.height = newHeight + "px";
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    sendMessage();
+    return;
+  }
+
+  const textarea = event.target;
+  textarea.style.height = "auto";
+  const newHeight = Math.min(textarea.scrollHeight, 140);
+  textarea.style.height = newHeight + "px";
 }
 
-// Welcome message on page load
-window.onload = function() {
-    setTimeout(() => {
-        const chatBox = document.getElementById("chat-box");
-        const welcomeMessage = document.createElement("div");
-        welcomeMessage.className = "ai-message";
-        const welcomeText = "Hello! I'm ORION your AI Tutor. You can ask me questions directly, or upload PDF documents using the buttons below to get document-specific answers. How can I help you today?";
-        welcomeMessage.innerHTML = `<strong>ORION:</strong> ${welcomeText}`;
-        chatBox.appendChild(welcomeMessage);
-        
-        // Send welcome message for speech synthesis
-        fetch("/text-to-speech", {
-            method: "POST",
-            body: JSON.stringify({ text: welcomeText }),
-            headers: { "Content-Type": "application/json" }
-        })
-        .then(response => response.json())
-        .then(data => console.log("Welcome message spoken"))
-        .catch(error => console.error("Error speaking welcome message:", error));
-    }, 500);
+// Welcome message
+function showWelcomeMessage() {
+  const chatBox = document.getElementById("chat-box");
+  if (!chatBox) return;
+
+  const welcomeMessage = document.createElement("div");
+  welcomeMessage.className = "ai-message";
+  const welcomeText =
+    "Hello! I'm ORION, your intelligent AI Tutor. Ask me any question, explore the topic cards, or upload PDF notes to get document-grounded answers. How can I help you learn today?";
+
+  welcomeMessage.innerHTML = `
+    <div class="ai-header">
+      <div class="ai-author">
+        <div class="ai-author-icon"><i class="fa-solid fa-atom"></i></div>
+        <span>ORION</span>
+        <span class="ai-badge">AI TUTOR</span>
+      </div>
+      <div class="ai-actions">
+        <button class="copy-btn" onclick="copyMessageText(this)" title="Copy Welcome">
+          <i class="fa-regular fa-copy"></i>
+          <span>Copy</span>
+        </button>
+      </div>
+    </div>
+    <div class="ai-body"><p>${welcomeText}</p></div>
+  `;
+  chatBox.appendChild(welcomeMessage);
+  scrollToBottom();
 }
+
+// Page load initialization
+window.onload = function () {
+  setTimeout(() => {
+    showWelcomeMessage();
+
+    // Spoken welcome greeting
+    const welcomeGreeting =
+      "Hello! I'm ORION your AI Tutor. How can I help you today?";
+    fetch("/text-to-speech", {
+      method: "POST",
+      body: JSON.stringify({ text: welcomeGreeting }),
+      headers: { "Content-Type": "application/json" },
+    })
+      .then((response) => response.json())
+      .catch((err) => console.log("Welcome speech suppressed or skipped"));
+  }, 400);
+};

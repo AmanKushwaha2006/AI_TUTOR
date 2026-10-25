@@ -3,116 +3,368 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ORION | AI Tutor</title>
+    <title>ORION | Next-Gen AI Tutor</title>
+
+    <!-- Modern Google Fonts: Outfit, Plus Jakarta Sans, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Font Awesome 6.5.2 -->
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
     />
+
+    <!-- Custom Modern Stylesheet -->
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='style.css') }}"
     />
+
     <!-- Marked.js for parsing Markdown into clean HTML -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}" defer></script>
   </head>
   <body>
-    <div class="chat-container">
-      <div id="titile">
-        <h2>
-          <span class="orion">ORION</span> – <span class="tagline">The Voice of Knowledge</span>
-        </h2>
-        
-        <h3 class="typing-text"><span></span></h3>
-      </div>
+    <!-- Ambient Background Lighting Orbs -->
+    <div class="ambient-glow glow-top"></div>
+    <div class="ambient-glow glow-right"></div>
+    <div class="ambient-glow glow-bottom"></div>
 
-      <!-- Status indicator for RAG system -->
-      <div id="rag-status" class="status-indicator">
-        <span class="status-dot inactive"></span>
-        <span class="status-text">No PDFs loaded</span>
-      </div>
-
-      <div id="chat-box"></div>
-
-      <!-- Listening Popup -->
-      <div id="listening-popup" class="hidden">
-        <div class="listening-box">
-          <p id="listening-text">🎤 Listening to your sentence...</p>
-          <div class="wave-container">
-            <div class="wave"></div>
-            <div class="wave"></div>
-            <div class="wave"></div>
-            <div class="wave"></div>
-            <div class="wave"></div>
+    <!-- Application Layout -->
+    <div class="app-layout">
+      <!-- Top Navigation Bar -->
+      <header class="app-header">
+        <div class="header-left">
+          <div class="brand-logo" onclick="startNewChat()" role="button" title="Return to home">
+            <div class="logo-orb">
+              <i class="fa-solid fa-atom"></i>
+            </div>
+            <div class="brand-text">
+              <h1 class="brand-title">
+                <span class="brand-name">ORION</span>
+                <span class="badge-version">AI TUTOR</span>
+              </h1>
+              <span class="brand-tagline">The Voice of Knowledge</span>
+            </div>
           </div>
-          <button id="stop-listening-btn" class="stop-listening-btn" onclick="stopVoiceInput()">
-            <i class="fa-solid fa-circle-stop"></i> Stop & Submit
-          </button>
-          <span class="listening-hint">(Or press <b>Esc</b> / click <b>Mic</b> when done speaking)</span>
         </div>
-      </div>
 
-      <!-- PDF Loading Progress -->
-      <div id="loading-indicator" class="hidden">
-        <div class="loading-box">
-          <p id="loading-text">Loading PDFs...</p>
-          <div class="spinner"></div>
+        <!-- Center RAG / Web Mode Status Badge -->
+        <div class="header-center">
+          <div id="rag-status" class="status-indicator" title="Current knowledge retrieval mode">
+            <span class="status-dot inactive"></span>
+            <span class="status-text">Web Research Mode</span>
+          </div>
         </div>
-      </div>
 
-      <div class="input-container">
-        <textarea
-          class="textbar"
-          id="user-input"
-          placeholder="Type your question..."
-          rows="1"
-          onkeydown="handleTextareaInput(event)"
-        ></textarea>
-        <div class="button-group">
-          <button class="send-button" onclick="sendMessage()">
-            <i class="fa-regular fa-paper-plane"></i>
-            <span class="tooltip">Ask Tutor</span>
+        <!-- Right Quick Actions -->
+        <div class="header-right">
+          <button class="nav-btn" onclick="startNewChat()" title="Clear conversation & reset">
+            <i class="fa-solid fa-plus"></i>
+            <span class="btn-label">New Chat</span>
           </button>
-          <button class="mic-button" onclick="toggleVoiceInput()">
-            <i class="fa-solid fa-microphone-lines"></i>
-            <span class="tooltip">Tap to speak/stop</span>
-          </button>
+
           <button
-            class="doc-button"
+            class="nav-btn"
             onclick="document.getElementById('pdf-files').click()"
+            title="Upload PDF documents for RAG grounding"
           >
-            <i class="fa-solid fa-paperclip"></i>
-            <span class="tooltip">Add PDF Files</span>
+            <i class="fa-solid fa-file-arrow-up"></i>
+            <span class="btn-label">Upload PDFs</span>
           </button>
 
-          <button class="stop-button" onclick="stopSpeech()">
-            <i class="fa-solid fa-stop"></i>
-            <span class="tooltip">Stop speech</span>
+          <button
+            class="nav-btn"
+            onclick="document.getElementById('pdf-folder').click()"
+            title="Upload folder with study materials"
+          >
+            <i class="fa-solid fa-folder-open"></i>
+            <span class="btn-label">Folder</span>
+          </button>
+
+          <button
+            class="nav-btn stop-button"
+            onclick="stopSpeech()"
+            title="Stop audio speech playback"
+          >
+            <i class="fa-solid fa-volume-xmark"></i>
+            <span class="btn-label">Stop Audio</span>
           </button>
         </div>
-      </div>
+      </header>
 
-        <div class="pdf-controls">
-          <input
-            type="file"
-            id="pdf-files"
-            accept=".pdf"
-            multiple
-            style="display: none"
-            onchange="handleFileUpload(this.files)"
-          />
-          <input
-            type="file"
-            id="pdf-folder"
-            webkitdirectory
-            directory
-            multiple
-            style="display: none"
-            onchange="handleFolderUpload(this.files)"
-          />
+      <!-- Main Workspace Container -->
+      <main class="main-content">
+        <div class="chat-viewport">
+          <!-- Hero Section with Attractive Topic Cards -->
+          <section id="hero-section" class="hero-section">
+            <div class="hero-badge">
+              <i class="fa-solid fa-sparkles"></i>
+              <span>Interactive Multi-Agent Learning</span>
+            </div>
 
-        
+            <h2 class="hero-headline">
+              What would you like to <span class="gradient-text">learn today?</span>
+            </h2>
+            <p class="hero-subtext">
+              Ask any complex question, upload lecture PDFs for grounded answers, or explore the topic cards below:
+            </p>
+
+            <!-- Topic Cards Grid with Themed Icons -->
+            <div class="topic-grid">
+              <!-- Topic 1: Quantum Physics -->
+              <div
+                class="topic-card topic-physics"
+                onclick="selectTopic('Explain Quantum Superposition and Entanglement in simple terms with real-world analogies.')"
+              >
+                <div class="topic-icon-box">
+                  <i class="fa-solid fa-atom"></i>
+                </div>
+                <div class="topic-info">
+                  <div class="topic-meta">
+                    <span class="topic-tag">Physics</span>
+                    <i class="fa-solid fa-arrow-right topic-arrow"></i>
+                  </div>
+                  <h3 class="topic-title">Quantum Physics</h3>
+                  <p class="topic-desc">
+                    Superposition, entanglement, and wave-particle duality explained simply.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Topic 2: Computer Science & AI -->
+              <div
+                class="topic-card topic-tech"
+                onclick="selectTopic('How do Transformer Neural Networks and Self-Attention mechanisms work in Large Language Models?')"
+              >
+                <div class="topic-icon-box">
+                  <i class="fa-solid fa-microchip"></i>
+                </div>
+                <div class="topic-info">
+                  <div class="topic-meta">
+                    <span class="topic-tag">Computer Science</span>
+                    <i class="fa-solid fa-arrow-right topic-arrow"></i>
+                  </div>
+                  <h3 class="topic-title">AI & Transformers</h3>
+                  <p class="topic-desc">
+                    Neural attention, token embeddings, and multi-agent systems breakdown.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Topic 3: Mathematics -->
+              <div
+                class="topic-card topic-math"
+                onclick="selectTopic('Explain Bayes Theorem with a clear, step-by-step example and its application in probability.')"
+              >
+                <div class="topic-icon-box">
+                  <i class="fa-solid fa-square-root-variable"></i>
+                </div>
+                <div class="topic-info">
+                  <div class="topic-meta">
+                    <span class="topic-tag">Mathematics</span>
+                    <i class="fa-solid fa-arrow-right topic-arrow"></i>
+                  </div>
+                  <h3 class="topic-title">Probability & Math</h3>
+                  <p class="topic-desc">
+                    Bayes' theorem, statistical intuition, and mathematical principles.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Topic 4: Biology & Genetics -->
+              <div
+                class="topic-card topic-bio"
+                onclick="selectTopic('How does CRISPR-Cas9 gene editing work, and what are its ethical and clinical applications?')"
+              >
+                <div class="topic-icon-box">
+                  <i class="fa-solid fa-dna"></i>
+                </div>
+                <div class="topic-info">
+                  <div class="topic-meta">
+                    <span class="topic-tag">Life Sciences</span>
+                    <i class="fa-solid fa-arrow-right topic-arrow"></i>
+                  </div>
+                  <h3 class="topic-title">Genetics & CRISPR</h3>
+                  <p class="topic-desc">
+                    Molecular genetics, guide RNA mechanisms, and therapeutic applications.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Topic 5: World History -->
+              <div
+                class="topic-card topic-history"
+                onclick="selectTopic('What were the primary economic, social, and technological drivers of the Industrial Revolution?')"
+              >
+                <div class="topic-icon-box">
+                  <i class="fa-solid fa-landmark"></i>
+                </div>
+                <div class="topic-info">
+                  <div class="topic-meta">
+                    <span class="topic-tag">World History</span>
+                    <i class="fa-solid fa-arrow-right topic-arrow"></i>
+                  </div>
+                  <h3 class="topic-title">Global History</h3>
+                  <p class="topic-desc">
+                    Turning points, industrial revolutions, and global civilization transformations.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Topic 6: Document Analysis (RAG) -->
+              <div
+                class="topic-card topic-doc"
+                onclick="triggerPdfUploadPrompt()"
+              >
+                <div class="topic-icon-box">
+                  <i class="fa-solid fa-file-invoice"></i>
+                </div>
+                <div class="topic-info">
+                  <div class="topic-meta">
+                    <span class="topic-tag">Document RAG</span>
+                    <i class="fa-solid fa-arrow-right topic-arrow"></i>
+                  </div>
+                  <h3 class="topic-title">Analyze Study Notes</h3>
+                  <p class="topic-desc">
+                    Upload your PDF notes or syllabus to ask questions grounded directly in them.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Chat Messages Box -->
+          <div id="chat-box" class="chat-box"></div>
         </div>
+
+        <!-- Modern Voice Listening Waveform Modal -->
+        <div id="listening-popup" class="listening-modal hidden">
+          <div class="listening-card">
+            <div class="listening-ring">
+              <i class="fa-solid fa-microphone-lines"></i>
+            </div>
+            <h4 id="listening-text" class="listening-title">Listening to your sentence...</h4>
+            <p class="listening-subtitle">
+              Speak your complete question naturally. ORION will transcribe your entire sentence.
+            </p>
+
+            <div class="soundwave-container">
+              <div class="soundwave-bar bar-1"></div>
+              <div class="soundwave-bar bar-2"></div>
+              <div class="soundwave-bar bar-3"></div>
+              <div class="soundwave-bar bar-4"></div>
+              <div class="soundwave-bar bar-5"></div>
+              <div class="soundwave-bar bar-6"></div>
+              <div class="soundwave-bar bar-7"></div>
+            </div>
+
+            <div class="listening-actions">
+              <button
+                id="stop-listening-btn"
+                class="stop-listening-btn"
+                onclick="stopVoiceInput()"
+              >
+                <i class="fa-solid fa-circle-stop"></i>
+                <span>Stop &amp; Submit</span>
+              </button>
+              <span class="listening-hint">
+                Or press <kbd>Esc</kbd> / <kbd>Enter</kbd> when finished speaking
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Document Loading Spinner Overlay -->
+        <div id="loading-indicator" class="loading-overlay hidden">
+          <div class="loading-card">
+            <div class="modern-spinner"></div>
+            <div class="loading-content">
+              <h4 id="loading-text" class="loading-title">Loading PDFs...</h4>
+              <p class="loading-sub">
+                Extracting text, OCR scanning scanned pages, and building vector embeddings with Ollama...
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating Modern Bottom Input Dock -->
+        <div class="dock-wrapper">
+          <div class="input-container">
+            <!-- Left Attachments -->
+            <div class="dock-left-tools">
+              <button
+                class="dock-tool-btn doc-button"
+                onclick="document.getElementById('pdf-files').click()"
+                title="Attach PDF file(s)"
+              >
+                <i class="fa-solid fa-paperclip"></i>
+                <span class="tooltip">Attach PDFs</span>
+              </button>
+            </div>
+
+            <!-- Auto-expanding Textarea -->
+            <div class="dock-textarea-box">
+              <textarea
+                class="textbar"
+                id="user-input"
+                placeholder="Ask ORION anything, or pick a topic above..."
+                rows="1"
+                onkeydown="handleTextareaInput(event)"
+              ></textarea>
+            </div>
+
+            <!-- Right Controls: Mic & Send -->
+            <div class="dock-right-tools">
+              <button
+                class="dock-tool-btn mic-button"
+                onclick="toggleVoiceInput()"
+                title="Voice input (Offline Vosk recognition)"
+              >
+                <i class="fa-solid fa-microphone"></i>
+                <span class="tooltip">Speak</span>
+              </button>
+
+              <button
+                class="dock-tool-btn send-button"
+                onclick="sendMessage()"
+                title="Send query"
+              >
+                <i class="fa-solid fa-arrow-up"></i>
+                <span class="tooltip">Send</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Subtle Footer Note -->
+          <div class="dock-footer">
+            <span>ORION AI Tutor • Powered by Groq, LangGraph &amp; Mem0 • High-accuracy educational assistant</span>
+          </div>
+        </div>
+      </main>
+
+      <!-- Hidden PDF File Pickers -->
+      <div class="pdf-controls" style="display: none;">
+        <input
+          type="file"
+          id="pdf-files"
+          accept=".pdf"
+          multiple
+          onchange="handleFileUpload(this.files)"
+        />
+        <input
+          type="file"
+          id="pdf-folder"
+          webkitdirectory
+          directory
+          multiple
+          onchange="handleFolderUpload(this.files)"
+        />
       </div>
     </div>
   </body>
