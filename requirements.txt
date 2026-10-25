@@ -26,6 +26,9 @@ markdown2
 mistune
 html2text
 pypdf
+pymupdf
+pillow
+rapidocr-onnxruntime
 
 
 # Tools

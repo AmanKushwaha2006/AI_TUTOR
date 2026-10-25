@@ -86,30 +86,42 @@ def initialize_rag():
     try:
         if 'files' in request.files:
             files = request.files.getlist('files')
+            upload_dir = os.path.join(PROJECT_ROOT, "data", "uploads")
+            os.makedirs(upload_dir, exist_ok=True)
             
-            with tempfile.TemporaryDirectory() as temp_dir:
-                file_paths = []
-                for file in files:
-                    if file.filename.endswith('.pdf'):
-                        file_path = os.path.join(temp_dir, file.filename)
-                        file.save(file_path)
-                        file_paths.append(file_path)
+            file_paths = []
+            for file in files:
+                if file.filename and file.filename.lower().endswith('.pdf'):
+                    file_path = os.path.join(upload_dir, file.filename)
+                    file.save(file_path)
+                    file_paths.append(file_path)
 
-                if len(file_paths) == 1:
-                    vector_store = index_pdfs(file_paths[0])
-                else:
-                    vector_store = index_pdfs(file_paths)
+            if not file_paths:
+                return jsonify({"success": False, "message": "No valid PDF files provided"}), 400
+
+            if len(file_paths) == 1:
+                vector_store = index_pdfs(file_paths[0])
+            else:
+                vector_store = index_pdfs(file_paths)
         
         elif 'folder' in request.form:
             folder_path = request.form.get('folder')
+            if not folder_path or not os.path.isdir(folder_path):
+                return jsonify({"success": False, "message": "Invalid folder path provided"}), 400
             vector_store = index_pdfs(folder_path)
         
         else:
             return jsonify({"success": False, "message": "No files or folder provided"}), 400
         
+        if not vector_store:
+            return jsonify({
+                "success": False, 
+                "message": "Failed to extract text from the uploaded PDF document."
+            }), 400
+
         # Create RAG tool if vector_store is available
-        rag_tool_instance = make_rag_tool(vector_store) if vector_store else None
-        return jsonify({"success": True, "message": "RAG initialized successfully"})
+        rag_tool_instance = make_rag_tool(vector_store)
+        return jsonify({"success": True, "message": "RAG initialized successfully with document content"})
     
     except Exception as e:
         print(f"RAG initialization error: {e}")

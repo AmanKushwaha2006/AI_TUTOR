@@ -12,6 +12,19 @@ from pypdf import PdfReader
 from typing import List, Dict, Tuple, Union, Optional
 import logging
 
+try:
+    import pymupdf as fitz
+except ImportError:
+    try:
+        import fitz
+    except ImportError:
+        fitz = None
+
+try:
+    from rapidocr_onnxruntime import RapidOCR
+    ocr_engine = RapidOCR()
+except Exception:
+    ocr_engine = None
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -20,6 +33,7 @@ logger = logging.getLogger(__name__)
 def extract_text_from_pdf(pdf_path: str) -> List[Tuple[str, Dict]]:
     """
     Extracts text from a given PDF file with metadata.
+    Supports digital text and automatic OCR fallback for scanned certificates, stamp papers, and images.
     
     Args:
         pdf_path: Path to the PDF file
@@ -28,22 +42,75 @@ def extract_text_from_pdf(pdf_path: str) -> List[Tuple[str, Dict]]:
         List of tuples containing (text, metadata)
     """
     logger.info(f"Extracting text from {os.path.basename(pdf_path)}")
-    
+    texts_with_metadata = []
+
+    # 1. First choice: Use PyMuPDF (fitz) with automatic OCR fallback
+    if fitz is not None:
+        try:
+            doc = fitz.open(pdf_path)
+            total_pages = len(doc)
+            for page_idx, page in enumerate(doc):
+                text = page.get_text().strip()
+
+                # If text is empty or very short, this is likely a scanned image/certificate -> run OCR
+                if len(text) < 30 and ocr_engine is not None:
+                    try:
+                        logger.info(f"Page {page_idx+1} has no digital text. Running OCR...")
+                        pix = page.get_pixmap(dpi=150)
+                        res, _ = ocr_engine(pix.tobytes("png"))
+                        if res:
+                            ocr_text = "\n".join([line[1] for line in res]).strip()
+                            if ocr_text:
+                                text = ocr_text
+                                logger.info(f"Page {page_idx+1}: Extracted {len(text)} chars via OCR")
+                    except Exception as ocr_err:
+                        logger.warning(f"OCR failed for page {page_idx}: {ocr_err}")
+
+                if text and text.strip():
+                    metadata = {
+                        "file_name": os.path.basename(pdf_path),
+                        "file_path": pdf_path,
+                        "page_index": page_idx,
+                        "total_pages": total_pages
+                    }
+                    texts_with_metadata.append((text, metadata))
+
+            if texts_with_metadata:
+                logger.info(f"Extracted {len(texts_with_metadata)} pages with text from {os.path.basename(pdf_path)} using PyMuPDF+OCR")
+                return texts_with_metadata
+        except Exception as e:
+            logger.warning(f"PyMuPDF extraction failed for {pdf_path}: {e}. Trying pypdf fallback...")
+
+    # 2. Fallback: Use pypdf with image OCR fallback
     try:
         reader = PdfReader(pdf_path)
-        texts_with_metadata = []
-        
+        total_pages = len(reader.pages)
         for page_idx, page in enumerate(reader.pages):
-            text = page.extract_text()
-            if text and text.strip():  # Check if text is not empty or just whitespace
+            text = (page.extract_text() or "").strip()
+
+            if len(text) < 30 and ocr_engine is not None and hasattr(page, 'images') and len(page.images) > 0:
+                try:
+                    logger.info(f"pypdf: Page {page_idx+1} has {len(page.images)} images. Running OCR...")
+                    ocr_lines = []
+                    for img in page.images:
+                        res, _ = ocr_engine(img.data)
+                        if res:
+                            ocr_lines.extend([line[1] for line in res])
+                    if ocr_lines:
+                        text = "\n".join(ocr_lines).strip()
+                        logger.info(f"pypdf: Extracted {len(text)} chars via image OCR")
+                except Exception as ocr_err:
+                    logger.warning(f"pypdf image OCR failed on page {page_idx}: {ocr_err}")
+
+            if text and text.strip():
                 metadata = {
                     "file_name": os.path.basename(pdf_path),
                     "file_path": pdf_path,
                     "page_index": page_idx,
-                    "total_pages": len(reader.pages)
+                    "total_pages": total_pages
                 }
                 texts_with_metadata.append((text, metadata))
-        
+
         logger.info(f"Extracted {len(texts_with_metadata)} pages with text from {os.path.basename(pdf_path)}")
         return texts_with_metadata
         
